@@ -1,0 +1,67 @@
+name: بناء تطبيق تسنيم (APK)
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: فك ضغط المشروع
+        run: |
+          unzip -o tasneem-app.zip
+          rsync -a tasneem/ ./
+
+      - name: تثبيت مفتاح توقيع ثابت (عشان التحديثات تشتغل بدون حذف النسخة القديمة)
+        run: |
+          mkdir -p ~/.android
+          cp keystore/debug.keystore ~/.android/debug.keystore
+
+      - name: تجهيز Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: تجهيز Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: تجهيز أدوات أندرويد
+        uses: android-actions/setup-android@v3
+
+      - name: تثبيت الحزم
+        run: npm install
+
+      - name: تنزيل المصحف داخل التطبيق (أوفلاين من أول تشغيل)
+        run: |
+          mkdir -p www/data
+          curl -fsSL --retry 3 -o www/data/quran.json \
+            https://api.alquran.cloud/v1/quran/quran-uthmani || \
+          curl -fsSL --retry 3 -o www/data/quran.json \
+            https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/ara-quranuthmanihaf.json
+          node -e "const j=require('./www/data/quran.json');const s=j.data?j.data.surahs:j.surahs;const a=s.reduce((x,y)=>x+y.ayahs.length,0);if(s.length!==114||a!==6236)throw new Error('بيانات المصحف ناقصة: '+s.length+' سورة و'+a+' آية');console.log('✓ المصحف كامل: '+s.length+' سورة و'+a+' آية')"
+
+      - name: إنشاء مشروع أندرويد
+        run: npx cap add android
+
+      - name: إضافة الكود الأصلي والأذونات
+        run: node scripts/prepare-android.mjs
+
+      - name: مزامنة الملفات
+        run: npx cap sync android
+
+      - name: بناء APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: رفع الملف
+        uses: actions/upload-artifact@v4
+        with:
+          name: tasneem-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
