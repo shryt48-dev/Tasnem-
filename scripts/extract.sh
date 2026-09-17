@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+rm -rf extracted
+unzip -o index.zip -d extracted
+cnt=$(ls -1 extracted | wc -l)
+if [ "$cnt" -eq 1 ] && [ -d "extracted/$(ls extracted)" ]; then
+  rsync -a extracted/*/ ./
+else
+  rsync -a extracted/ ./
+fi
