@@ -1,2 +1,2 @@
 - name: فك ضغط المشروع
-        run: rm -rf extracted && unzip -o index.zip -d extracted && (d=$(find extracted -mindepth 1 -maxdepth 1 -type d); f=$(find extracted -mindepth 1 -maxdepth 1 -type f); if [ -n "$d" ] && [ -z "$f" ]; then rsync -a "$d"/ ./; else rsync -a extracted/ ./; fi)
+        run: rm -rf extracted && unzip -o index.zip -d extracted && cnt=$(ls -1 extracted | wc -l) && if [ $cnt -eq 1 ] && [ -d extracted/$(ls extracted) ]; then rsync -a extracted/*/ ./; else rsync -a extracted/ ./; fi
