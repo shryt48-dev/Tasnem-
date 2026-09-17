@@ -1,2 +1,79 @@
-- name: فك ضغط المشروع
-        run: bash scripts/extract.sh
+name: Check Project
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  check:
+    name: Check HTML CSS JavaScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check project files
+        run: |
+          echo "Checking project structure..."
+
+          test -f index.html || {
+            echo "ERROR: index.html not found"
+            exit 1
+          }
+
+          echo "index.html found successfully"
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm install
+          else
+            echo "No package.json found - skipping npm install"
+          fi
+
+      - name: Run tests
+        run: |
+          if [ -f package.json ]; then
+            npm test --if-present
+          else
+            echo "No tests configured"
+          fi
+
+      - name: Check JavaScript syntax
+        run: |
+          echo "Checking JavaScript files..."
+
+          find . -name "*.js" \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*" \
+            -print0 | while IFS= read -r -d '' file
+          do
+            echo "Checking: $file"
+            node --check "$file"
+          done
+
+      - name: Check HTML
+        run: |
+          echo "HTML file found:"
+          find . -name "*.html" \
+            -not -path "./node_modules/*" \
+            -not -path "./.git/*"
+
+      - name: Final result
+        run: |
+          echo "================================"
+          echo "Project check completed!"
+          echo "No critical JavaScript syntax errors found."
+          echo "================================"
